@@ -1,4 +1,4 @@
-## **Inheritance in Java (In-Depth but Easy)**
+## **Inheritance in Java**
 
 ### **1. What is Inheritance?**
 
@@ -108,6 +108,63 @@ class Parent {
 ```
 
 * **Performance tip:** Final methods can be **inlined** by the compiler (early binding).
+
+### 1. **Normal method calls (late binding / dynamic dispatch)**
+
+* By default, Java uses *late binding* for non-`final`, non-`static`, non-`private` methods.
+* This means the actual method implementation to be called is determined **at runtime** based on the object type.
+* Late binding allows **polymorphism** but comes with a small performance cost because the JVM must look up the method in a virtual method table (vtable) each time.
+
+---
+
+### 2. **Final methods (early binding / inlining)**
+
+* When you declare a method `final`, the compiler **knows** it cannot be overridden.
+* Because of this guarantee, the compiler (or JIT at runtime) can:
+
+  * **Early bind** — Resolve the call at **compile time** instead of runtime.
+  * **Inline** the method — Directly copy the method’s bytecode into the caller’s code, removing the method call overhead.
+
+---
+
+### 3. **Inlining example**
+
+```java
+class Test {
+    final int square(int x) {
+        return x * x;
+    }
+
+    int sumOfSquares(int a, int b) {
+        // Instead of calling square(a) and square(b), 
+        // the compiler can replace them with a*a and b*b directly.
+        return square(a) + square(b);
+    }
+}
+```
+
+With inlining, the JVM may optimize `sumOfSquares` to:
+
+```java
+return a * a + b * b;
+```
+
+No method call overhead.
+
+---
+
+### 4. **Key Notes**
+
+* Inlining is **not guaranteed** just because a method is `final` — it’s an *option* the compiler or JIT may choose.
+* The real performance benefit is usually noticeable only for **small, frequently called methods** (e.g., getters, setters, math operations).
+* Other cases of early binding:
+
+  * `private` methods (can’t be overridden)
+  * `static` methods
+  * `final` classes (all methods can be early bound)
+
+---
+
 
 #### **c. Prevent inheritance**
 
@@ -398,5 +455,3 @@ class D implements B, C {
 * **Reason multiple class inheritance is not allowed:** To prevent **ambiguity** in method resolution (diamond problem).
 
 ---
-
-If you want, I can **combine this with the types of interfaces & static import details** into **one clean Java core revision sheet** so you can have it for quick interview prep. That way you have **interfaces + inheritance + static concepts** in one place. Would you like me to do that?
