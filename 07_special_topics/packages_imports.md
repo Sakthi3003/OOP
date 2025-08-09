@@ -76,7 +76,7 @@ java -cp "path/to/classes" MyClass
 
 ---
 
-### ** User defined vd Predefined packages
+### **User defined vd Predefined packages**
 
 In Java, packages are basically containers (namespaces) that group related classes, interfaces, and sub-packages together to organize code and avoid naming conflicts.
 
