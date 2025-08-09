@@ -26,6 +26,7 @@ JAVA-OOP-IN-DEPTH/
 │ ├── default_access.md
 │
 ├── 04_object_class_methods/
+| ├── object_class.md
 │ ├── tostring.md
 │ ├── equals_hashcode.md
 │ ├── clone.md
