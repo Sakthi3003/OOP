@@ -236,6 +236,11 @@ public class Main {
 * The **method call** depends on **reference type**, not the actual object.
 * `@Override` annotation **cannot** be used for static methods — it will give a compile-time error.
 
+* Simple terms of understanding
+* Overriding depends on objects
+* Static is independent of object
+* Hence static cannot be overriden but they can be hidden
+
 ---
 
 
