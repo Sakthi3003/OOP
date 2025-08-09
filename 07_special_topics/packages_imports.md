@@ -179,7 +179,7 @@ public class Test {
 }
 ```
 
-### **Normal Import vs Static Import 
+### **Normal Import vs Static Import** 
 
 **Static import** in Java is a feature that allows you to access static members (variables or methods) of a class **directly**, without qualifying them with the class name.
 
