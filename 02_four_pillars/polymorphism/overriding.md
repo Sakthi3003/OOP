@@ -1,5 +1,3 @@
-Alright — I’ll give you **full, in-depth notes** that combine everything you mentioned:
-
 * Overriding rules
 * What happens when a method is *not* overridden
 * Dynamic Method Dispatch
