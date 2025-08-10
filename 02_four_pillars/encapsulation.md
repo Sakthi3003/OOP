@@ -363,3 +363,132 @@ If they give you a code snippet and ask “Is this fully encapsulated?” — **
 
 ---
 
+## **What is Defensive Copying?**
+
+**Definition:**
+When you receive a **mutable object** (List, Map, array, Date, etc.) from outside or give one to outside code, you make a **copy** of it instead of using or returning the original reference.
+
+Why?
+
+* So no one outside your class can secretly modify your internal data without going through your rules.
+
+---
+
+## **Think of it like this**
+
+Imagine your **private diary**.
+
+* Someone asks to read it.
+* You don’t give them the *real diary* — you photocopy the pages and give them the copy.
+* That way, if they draw mustaches on the pictures, your original stays untouched.
+
+---
+
+## **Where Defensive Copying is Needed**
+
+Two main places:
+
+1. **In the constructor (input parameters)**
+   When you take in a mutable object from outside.
+   → Copy it before storing.
+
+2. **In the getter (returning data)**
+   When you return a mutable object to outside.
+   → Return a copy or unmodifiable view.
+
+---
+
+### **Without Defensive Copying (Broken Encapsulation)**
+
+```java
+class University {
+    private List<String> students;
+
+    public University(List<String> students) {
+        this.students = students; // ❌ Using the same reference
+    }
+
+    public List<String> getStudents() {
+        return students; // ❌ Returning the real list
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        List<String> externalList = new ArrayList<>();
+        externalList.add("Sahi");
+
+        University uni = new University(externalList);
+
+        // Outside modification AFTER object creation
+        externalList.add("John"); 
+        System.out.println(uni.getStudents()); // [Sahi, John] ❌ changed without permission
+
+        // Outside modification THROUGH getter
+        uni.getStudents().add("Mary");
+        System.out.println(uni.getStudents()); // [Sahi, John, Mary] ❌ changed without permission
+    }
+}
+```
+
+---
+
+### **With Defensive Copying (Encapsulation Preserved)**
+
+```java
+import java.util.*;
+
+class University {
+    private List<String> students;
+
+    public University(List<String> students) {
+        // Defensive copy in constructor
+        this.students = new ArrayList<>(students); 
+    }
+
+    public List<String> getStudents() {
+        // Defensive copy in getter
+        return new ArrayList<>(students); 
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        List<String> externalList = new ArrayList<>();
+        externalList.add("Sahi");
+
+        University uni = new University(externalList);
+
+        // Modify the original list after creation
+        externalList.add("John"); 
+        System.out.println(uni.getStudents()); // [Sahi] ✅ unchanged
+
+        // Try modifying list from getter
+        uni.getStudents().add("Mary");
+        System.out.println(uni.getStudents()); // [Sahi] ✅ unchanged
+    }
+}
+```
+
+---
+
+### **Key Rules to Remember**
+
+* **Rule 1:** If you *accept* a mutable object from outside → copy it before storing.
+* **Rule 2:** If you *return* a mutable object to outside → copy it before returning.
+* **Rule 3:** Alternatively, return an **unmodifiable view** using:
+
+  ```java
+  Collections.unmodifiableList(students)
+  ```
+
+  This allows reading but throws `UnsupportedOperationException` if modification is attempted.
+
+---
+
+💡 **Interview Tip:**
+If they ask *“How do you make an immutable class in Java?”* — the **first step** is always **defensive copying** of mutable objects in both constructor and getter.
+
+---
+
+
