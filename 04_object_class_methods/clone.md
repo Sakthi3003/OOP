@@ -260,4 +260,266 @@ class Person {
 
 ---
 
+### **In depth explanation of clones**
+
+# What `super.clone()` means
+
+* `super.clone()` calls `Object.clone()` (the `clone()` method defined in `java.lang.Object`).
+* `Object.clone()` creates a **new instance** of the same runtime class and performs a **field-by-field copy** of the original object into the new one.
+* That copy is **shallow**: primitive fields are copied by value; reference fields are copied as references (both objects now point to the same referenced object).
+* Before calling `super.clone()`, your class **must** implement the `Cloneable` interface, otherwise `Object.clone()` throws `CloneNotSupportedException`.
+* `Object.clone()` is `protected`, so you typically override `clone()` in your class and make it `public`, and inside that method call `super.clone()` and cast the result to your class:
+
+```java
+@Override
+public MyClass clone() throws CloneNotSupportedException {
+    return (MyClass) super.clone();
+}
+```
+
+# Why primitives are “cloned” and references are not
+
+* Primitive fields (`int`, `double`, `boolean`, etc.) are stored directly in the object. A field-by-field copy copies their values — so the clone has independent primitive field values.
+* Reference fields hold pointers to other objects. Field-by-field copy copies the pointer value — **both original and clone point to the same object**. The pointed object is **not** cloned automatically.
+
+This difference is exactly why `super.clone()` gives a **shallow copy** by default.
+
+---
+
+# Shallow copy — what it is, example, and result
+
+**Definition:** a shallow copy copies the object and its primitive fields but only copies references for referenced objects (no recursive copying).
+
+**Example:**
+
+```java
+class Address implements Cloneable {
+    String city;
+    Address(String city) { this.city = city; }
+    @Override
+    protected Address clone() throws CloneNotSupportedException {
+        return (Address) super.clone(); // shallow but fine: String is immutable
+    }
+}
+
+class Person implements Cloneable {
+    String name;         // String: immutable (safe)
+    int age;             // primitive
+    Address address;     // mutable reference
+
+    Person(String name, int age, Address address) {
+        this.name = name; this.age = age; this.address = address;
+    }
+
+    @Override
+    protected Person clone() throws CloneNotSupportedException {
+        return (Person) super.clone(); // SHALLOW copy
+    }
+}
+
+public class TestShallow {
+    public static void main(String[] args) throws Exception {
+        Address addr = new Address("Salem");
+        Person p1 = new Person("Sahi", 22, addr);
+
+        Person p2 = p1.clone();    // shallow copy
+
+        // modify nested object via p2
+        p2.address.city = "Chennai";
+
+        System.out.println(p1.address.city); // prints "Chennai" — affected!
+    }
+}
+```
+
+**Why:** `p2.address` points to the same `Address` instance as `p1.address`. Changing it via `p2` shows up in `p1`.
+
+**When is shallow copy OK?**
+
+* When referenced objects are **immutable** (e.g., `String`, boxed primitives), or when you *want* shared references.
+
+---
+
+# Deep copy — what it is, how to implement, examples
+
+**Definition:** deep copy duplicates the object and **also duplicates (clones)** all referenced mutable objects recursively, so the clone is fully independent.
+
+## 1) Manual deep clone by overriding `clone()`
+
+You call `super.clone()` to get the shallow copy, then clone or recreate mutable fields.
+
+```java
+class Address implements Cloneable {
+    String city;
+    Address(String city) { this.city = city; }
+    @Override
+    protected Address clone() throws CloneNotSupportedException {
+        return (Address) super.clone(); // fine; only primitive/immutable inside
+    }
+}
+
+class Person implements Cloneable {
+    String name;
+    int age;
+    Address address;   // mutable
+
+    Person(String name, int age, Address address) {
+        this.name = name; this.age = age; this.address = address;
+    }
+
+    @Override
+    public Person clone() throws CloneNotSupportedException {
+        Person copy = (Person) super.clone(); // shallow copy fields
+        // now deep-copy mutable referenced objects
+        if (this.address != null) {
+            copy.address = this.address.clone();
+        }
+        return copy;
+    }
+}
+
+public class TestDeep {
+    public static void main(String[] args) throws Exception {
+        Address addr = new Address("Salem");
+        Person p1 = new Person("Sahi", 22, addr);
+
+        Person p2 = p1.clone(); // deep copy of address
+
+        p2.address.city = "Chennai";
+
+        System.out.println(p1.address.city); // still "Salem" — independent
+    }
+}
+```
+
+## 2) Deep copy for collections and arrays
+
+* For collections: create a new collection and deep-copy or clone each element (if necessary).
+
+  ```java
+  copy.list = new ArrayList<>();
+  for (Item i : this.list) {
+      copy.list.add(i == null ? null : i.clone()); // if Item is Cloneable
+  }
+  ```
+* For arrays: `arr.clone()` returns a new array, but it’s shallow w\.r.t. array elements (object references copied). For a deep array copy, you must clone each element.
+
+## 3) Deep copy via Serialization (easy but heavy)
+
+* If classes are `Serializable`, you can deep-copy via object serialization:
+
+  ```java
+  public static <T extends Serializable> T deepClone(T obj) {
+      try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+           ObjectOutputStream out = new ObjectOutputStream(bos)) {
+          out.writeObject(obj);
+          try (ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+               ObjectInputStream in = new ObjectInputStream(bis)) {
+               return (T) in.readObject();
+          }
+      } catch (Exception e) { throw new RuntimeException(e); }
+  }
+  ```
+* **Pros:** simple, handles graphs, cyclic references automatically.
+* **Cons:** slow, requires `Serializable`, transient fields not copied, may break security constraints.
+
+## 4) Deep copy by copy constructors / factory
+
+* Preferred by many: write a constructor that copies fields explicitly (and recursively).
+
+  ```java
+  class Address {
+      String city;
+      Address(String city){ this.city = city; }
+      Address(Address other) { this.city = other.city; } // copy ctor
+  }
+
+  class Person {
+      String name; int age; Address address;
+      Person(Person other) {
+          this.name = other.name;
+          this.age = other.age;
+          this.address = other.address == null ? null : new Address(other.address);
+      }
+  }
+  ```
+* **Advantages:** clear, safe, avoids Cloneable complexity; you can control immutability and invariants.
+
+---
+
+# Clone contract & practical rules / pitfalls
+
+* `Cloneable` is a **marker interface**: it signals `Object.clone()` that cloning is allowed. If you don’t implement it, `super.clone()` throws `CloneNotSupportedException`.
+* `Object.clone()` does **not call constructors** of the cloned object — the new object is created and fields are copied. This is important:
+
+  * Initialization logic in constructors is *not executed* for the cloned object.
+  * Final fields get copied (but you cannot reassign `final` fields in your `clone()`).
+* `clone()` in `Object` is `protected` — to make cloning public, override and declare `public`.
+* Be careful with **final** and **immutable** fields: cloning bypasses constructors, so final fields are copied as-is; you can’t assign to final fields in your clone method.
+* **Inheritance & clone:** subclasses should call `super.clone()` to get a proper shallow copy, then clone additional fields they add. If superclass `clone()` is not `public`, you may need workarounds. Cloning across complex inheritance hierarchies can be fragile.
+* **Mutable singleton, registries, or identity-sensitive objects:** cloning might break singleton invariants.
+
+---
+
+# Cyclic graphs and deep cloning
+
+* If the object graph has cycles (A → B → A), naive recursive cloning will loop infinitely.
+* To deep clone graphs with cycles, maintain a `Map<Original, Clone>` while cloning: before cloning a node, check map; if present, reuse clone; otherwise create clone and put in map, then clone fields.
+
+Sketch:
+
+```java
+Map<Object, Object> clones = new IdentityHashMap<>();
+Node cloneNode(Node n) {
+    if (n == null) return null;
+    if (clones.containsKey(n)) return (Node) clones.get(n);
+    Node c = new Node();
+    clones.put(n, c);
+    c.child = cloneNode(n.child);
+    return c;
+}
+```
+
+---
+
+# Common alternatives — why many avoid `clone()`
+
+* Bloch’s recommendation (Effective Java): **prefer copy constructors or static factory methods** over `clone()`:
+
+  * `public Person(Person other)` or `public static Person copyOf(Person other)`.
+* **Reasons:**
+
+  * `Cloneable` and `Object.clone()` behavior is awkward and limited (protected, throws `CloneNotSupportedException`, shallow by default).
+  * Implementing `clone()` correctly across inheritance is tricky.
+  * Copy constructors are explicit, easier to control, and don’t involve exceptions or hidden behavior.
+
+---
+
+# Quick checklist for implementing clone safely
+
+1. Implement `Cloneable` (marker).
+2. Override `clone()` and make it `public`.
+3. Inside `clone()` call `super.clone()` and cast to your class.
+4. For each mutable reference field, either:
+
+   * Clone it (call its `clone()` if it supports it), or
+   * Create a new instance (copy constructor), or
+   * Create a deep copy via serialization or manual copy.
+5. Handle `CloneNotSupportedException` (rethrow as `AssertionError` if you know you implement `Cloneable`).
+6. If your class is `final`, cloning is simpler; otherwise document behavior.
+7. Consider copy constructors as a simpler alternative.
+
+---
+
+# Summary — short and practical
+
+* `super.clone()` ⇒ calls `Object.clone()` ⇒ creates a *shallow* field-by-field copy.
+* **Primitives** are copied by value (so they are independently cloned).
+* **References** are copied as references (so shallow copy shares referenced objects).
+* **Shallow copy** is cheap but shares nested mutable objects.
+* **Deep copy** duplicates nested mutable objects too — you must implement it manually, use serialization, or write copy constructors.
+* Prefer explicit copy constructors or static factory methods in most cases — they’re clear, safe, and easy to maintain.
+
+---
+
 
